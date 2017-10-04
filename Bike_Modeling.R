@@ -4,9 +4,11 @@ library(dplyr)
 library(xtable)
 
 # reading data from previously obtained google bigquery, Bike_Data_Pull.R
-bike_stations <- readRDS("use files I sent")
-bike_trips <- readRDS("use files I sent")
+bike_stations <- readRDS("C:/Users/Tyler/Desktop/MSPA/MSPA 498/bike_stations.Rds")
+bike_trips <- readRDS("C:/Users/Tyler/Desktop/MSPA/MSPA 498/full_trips.Rds")
 
+###########################################################################################################################
+# data manipulation and variable creation section
 # start date
 bike_trips$start_date <- ""
 bike_trips$start_date <- as.Date(as.POSIXct(bike_trips$starttime))
@@ -59,4 +61,48 @@ station_end_count <- merge(end_trip_count, bike_stations[,c(1:2,7)], by = "stati
 end_trips_agg <- bike_trips %>%
   group_by(end_station_id, end_date) %>%
   summarise(trip_count=sum(!is.na(bikeid)))
+
+###########################################################################################################################
+# data exploration section
+# function for multiplotting
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  library(grid)
   
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+  
+  numPlots = length(plots)
+  
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                     ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+  
+  if (numPlots==1) {
+    print(plots[[1]])
+    
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+    
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+      
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+
+# distribution trips by age and gender
+ggplot(bike_trips[which(bike_trips$gender != "unknown")], aes(x = age_est, fill = gender)) + 
+  geom_histogram(position = "identity", alpha = 0.4, bins = 5) +
+  facet_grid(gender ~ .)
+
