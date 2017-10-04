@@ -4,8 +4,8 @@ library(dplyr)
 library(xtable)
 
 # reading data from previously obtained google bigquery, Bike_Data_Pull.R
-bike_stations <- readRDS("whatever you have")
-bike_trips <- readRDS("whatever you have")
+bike_stations <- readRDS("use files I sent")
+bike_trips <- readRDS("use files I sent")
 
 # start date
 bike_trips$start_date <- ""
