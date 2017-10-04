@@ -102,7 +102,6 @@ multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
 }
 
 # distribution trips by age and gender
-ggplot(bike_trips[which(bike_trips$gender != "unknown")], aes(x = age_est, fill = gender)) + 
-  geom_histogram(position = "identity", alpha = 0.4, bins = 5) +
+ggplot(subset(bike_trips, gender != "unknown"), aes(x = age_est, fill = gender)) + 
+  geom_histogram(position = "identity", alpha = 0.4, bins = 50) +
   facet_grid(gender ~ .)
-
