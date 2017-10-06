@@ -2,16 +2,31 @@ library(ggplot2)
 library(zoo)
 library(dplyr)
 library(xtable)
+library(RCurl)
 
 # reading data from previously obtained google bigquery, Bike_Data_Pull.R
 bike_stations <- readRDS("C:/Users/Tyler/Desktop/MSPA/MSPA 498/bike_stations.Rds")
+# https://www.dropbox.com/s/mtsm70lnda94kuz/full_trips.Rds?dl=0 , I'm trying to figure out if I can get dropbox to work
 bike_trips <- readRDS("C:/Users/Tyler/Desktop/MSPA/MSPA 498/full_trips.Rds")
+#weather data
+weatherURL <- getURL("https://raw.githubusercontent.com/SPCRLYST/BikeProject/master/NYC_Weather.csv")
+nyc_weather <- read.csv(text = weatherURL)
+
 
 ###########################################################################################################################
 # data manipulation and variable creation section
+# renaming the weather date column
+names(nyc_weather)[names(nyc_weather)=="DATE"] <- "start_date"
+nyc_weather$start_date <- as.Date(as.character(nyc_weather$start_date), format="%m/%d/%Y")
+# adding all weather data to the entire data frame is too large, this is done later in the code when needed
+
+# trip data frame modifications
 # start date
 bike_trips$start_date <- ""
 bike_trips$start_date <- as.Date(as.POSIXct(bike_trips$starttime))
+
+
+bike_trips <- merge(bike_trips, nyc_weather, by = "start_date", all.x = TRUE)
 
 # end date
 bike_trips$end_date <- ""
@@ -47,6 +62,8 @@ station_start_count <- merge(start_trip_count, bike_stations[,c(1:2,7)], by = "s
 start_trips_agg <- bike_trips %>%
   group_by(start_station_id, start_date) %>%
   summarise(trip_count=sum(!is.na(bikeid)))
+# adding weather statistics to the start trip aggregate data frame
+start_trips_agg <- merge(start_trips_agg, nyc_weather, by = "start_date", all.x = TRUE)
 
 # most trips by end station
 end_trip_count <- bike_trips %>%
@@ -57,7 +74,7 @@ names(end_trip_count)[names(end_trip_count)=="end_station_id"] <- "station_id"
 # merging with station data frame to add specific to station count
 station_end_count <- merge(end_trip_count, bike_stations[,c(1:2,7)], by = "station_id", all.x = TRUE)
 
-# setting up an aggregate data frame of how many trip occured from each station on a certain day
+# setting up an aggregate data frame of how many trips occured from each station on a certain day
 end_trips_agg <- bike_trips %>%
   group_by(end_station_id, end_date) %>%
   summarise(trip_count=sum(!is.na(bikeid)))
