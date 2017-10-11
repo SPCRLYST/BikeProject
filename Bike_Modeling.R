@@ -3,6 +3,7 @@ library(zoo)
 library(dplyr)
 library(xtable)
 library(RCurl)
+library(timeDate)
 
 # reading data from previously obtained google bigquery, Bike_Data_Pull.R
 bike_stations <- readRDS("C:/Users/Tyler/Desktop/MSPA/MSPA 498/bike_stations.Rds")
@@ -49,6 +50,7 @@ colnames(nadf) <- c("Missing Variables")
 na_xtab <- xtable(nadf, align=c("@{}l","c"), digits=2, caption = "Bike Trips Missing Variables")
 print(na_xtab, scalebox = 0.6, comment = FALSE)
 
+# start trip data frame creation
 # most trips by start station
 start_trip_count <- bike_trips %>%
   group_by(start_station_id) %>%
@@ -65,6 +67,62 @@ start_trips_agg <- bike_trips %>%
 # adding weather statistics to the start trip aggregate data frame
 start_trips_agg <- merge(start_trips_agg, nyc_weather, by = "start_date", all.x = TRUE)
 
+# building date structure as discussed for modeling
+# long form day
+start_trips_agg$day <- weekdays(as.Date(start_trips_agg$start_date,'%Y-%m-%d'))
+# long form month
+start_trips_agg$month <- strftime(start_trips_agg$start_date, "%B")
+# getting all four seasons
+start_trips_agg$season <- ""
+start_trips_agg$season <- as.character(start_trips_agg$season)
+start_trips_agg$season[start_trips_agg$month == "March" | 
+                         start_trips_agg$month == "April" |  
+                         start_trips_agg$month == "May"] <- "Spring"
+start_trips_agg$season[start_trips_agg$month == "June" | 
+                         start_trips_agg$month == "July" |  
+                         start_trips_agg$month == "August"] <- "Summer"
+start_trips_agg$season[start_trips_agg$month == "September" | 
+                         start_trips_agg$month == "October" |  
+                         start_trips_agg$month == "November"] <- "Fall"
+start_trips_agg$season[start_trips_agg$month == "December" | 
+                         start_trips_agg$month == "January" |  
+                         start_trips_agg$month == "February"] <- "Winter"
+# identifying holidays
+holidays <- c(as.Date("2013-01-01"), 
+              as.Date(Easter(2013)),
+              as.Date(USIndependenceDay(2013)),
+              as.Date(USLaborDay(2013)),
+              as.Date(USThanksgivingDay(2013)),
+              as.Date(USMemorialDay(2013)),
+              as.Date("2013-12-25"),
+              as.Date("2013-12-31"),
+              as.Date("2014-01-01"), 
+              as.Date(Easter(2014)),
+              as.Date(USIndependenceDay(2014)),
+              as.Date(USLaborDay(2014)),
+              as.Date(USThanksgivingDay(2014)),
+              as.Date(USMemorialDay(2014)),
+              as.Date("2014-12-25"),
+              as.Date("2014-12-31"),
+              as.Date("2015-01-01"), 
+              as.Date(Easter(2015)),
+              as.Date(USIndependenceDay(2015)),
+              as.Date(USLaborDay(2015)),
+              as.Date(USThanksgivingDay(2015)),
+              as.Date(USMemorialDay(2015)),
+              as.Date("2015-12-25"),
+              as.Date("2015-12-31"),
+              as.Date("2016-01-01"), 
+              as.Date(Easter(2016)),
+              as.Date(USIndependenceDay(2016)),
+              as.Date(USLaborDay(2016)),
+              as.Date(USThanksgivingDay(2016)),
+              as.Date(USMemorialDay(2016)),
+              as.Date("2016-12-25"),
+              as.Date("2016-12-31"))
+start_trips_agg$holiday <- ifelse(start_trips_agg$start_date %in% holidays, 1, 0)
+
+# end trip data frame creation
 # most trips by end station
 end_trip_count <- bike_trips %>%
   group_by(end_station_id) %>%
@@ -78,6 +136,36 @@ station_end_count <- merge(end_trip_count, bike_stations[,c(1:2,7)], by = "stati
 end_trips_agg <- bike_trips %>%
   group_by(end_station_id, end_date) %>%
   summarise(trip_count=sum(!is.na(bikeid)))
+# adding weather statistics to the start trip aggregate data frame
+end_trips_agg <- merge(end_trips_agg, nyc_weather, by.x = "end_date", by.y = "start_date", all.x = TRUE)
+
+# building date structure as discussed for modeling
+# long form day
+end_trips_agg$day <- weekdays(as.Date(end_trips_agg$end_date,'%Y-%m-%d'))
+# long form month
+end_trips_agg$month <- strftime(end_trips_agg$end_date, "%B")
+# getting all four seasons
+end_trips_agg$season <- ""
+end_trips_agg$season <- as.character(end_trips_agg$season)
+end_trips_agg$season[end_trips_agg$month == "March" | 
+                         end_trips_agg$month == "April" |  
+                         end_trips_agg$month == "May"] <- "Spring"
+end_trips_agg$season[end_trips_agg$month == "June" | 
+                         end_trips_agg$month == "July" |  
+                         end_trips_agg$month == "August"] <- "Summer"
+end_trips_agg$season[end_trips_agg$month == "September" | 
+                         end_trips_agg$month == "October" |  
+                         end_trips_agg$month == "November"] <- "Fall"
+end_trips_agg$season[end_trips_agg$month == "December" | 
+                         end_trips_agg$month == "January" |  
+                         end_trips_agg$month == "February"] <- "Winter"
+# identifying holidays
+end_trips_agg$holiday <- ifelse(end_trips_agg$end_date %in% holidays, 1, 0)
+
+###########################################################################################################################
+# writing data to RDS
+saveRDS(start_trips_agg, "C:/Users/Tyler/Desktop/MSPA/MSPA 498/start_trips_agg.Rds")
+saveRDS(end_trips_agg, "C:/Users/Tyler/Desktop/MSPA/MSPA 498/end_trips_agg.Rds")
 
 ###########################################################################################################################
 # data exploration section
