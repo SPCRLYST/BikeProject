@@ -4,6 +4,8 @@ library(dplyr)
 library(xtable)
 library(RCurl)
 library(timeDate)
+library(devtools)
+library(bigrquery)
 
 # reading data from previously obtained google bigquery, Bike_Data_Pull.R
 bike_stations <- readRDS("C:/Users/Tyler/Desktop/MSPA/MSPA 498/bike_stations.Rds")
@@ -162,11 +164,33 @@ end_trips_agg$season[end_trips_agg$month == "December" |
 # identifying holidays
 end_trips_agg$holiday <- ifelse(end_trips_agg$end_date %in% holidays, 1, 0)
 
+# Project name for the group
+project <- "animated-surfer-180415" # put your project ID here
+
+# sql code to pull all stations
+start_stations_sql <- "SELECT DISTINCT start_station_id
+,start_station_name
+,start_station_latitude
+,start_station_longitude
+FROM `bigquery-public-data.new_york.citibike_trips`"
+# Execute the query and store the result for citi stations
+start_bike_stations <- query_exec(start_stations_sql, project = project, use_legacy_sql = FALSE, max_pages = Inf)
+
+# sql code to pull all stations
+end_stations_sql <- "SELECT DISTINCT end_station_id
+,end_station_name
+,end_station_latitude
+,end_station_longitude
+FROM `bigquery-public-data.new_york.citibike_trips`"
+# Execute the query and store the result for citi stations
+end_bike_stations <- query_exec(end_stations_sql, project = project, use_legacy_sql = FALSE, max_pages = Inf)
+
 ###########################################################################################################################
 # writing data to RDS
 saveRDS(start_trips_agg, "C:/Users/Tyler/Desktop/MSPA/MSPA 498/start_trips_agg.Rds")
 saveRDS(end_trips_agg, "C:/Users/Tyler/Desktop/MSPA/MSPA 498/end_trips_agg.Rds")
-
+saveRDS(start_bike_stations, "C:/Users/Tyler/Desktop/MSPA/MSPA 498/start_bike_stations.Rds")
+saveRDS(end_bike_stations, "C:/Users/Tyler/Desktop/MSPA/MSPA 498/end_bike_stations.Rds")
 ###########################################################################################################################
 # data exploration section
 # function for multiplotting
