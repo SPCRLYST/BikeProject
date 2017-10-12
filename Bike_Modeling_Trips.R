@@ -6,5 +6,5 @@ library(RCurl)
 library(timeDate)
 
 # reading data from previously created trip data; Bike_Modeling.R
-start_trips <- readRDS("C:/Users/Tyler/Desktop/MSPA/MSPA 498/start_trips_agg.Rds")
-end_trips <- readRDS("C:/Users/Tyler/Desktop/MSPA/MSPA 498/end_trips_agg.Rds")
+start_trips <- readRDS(gzcon(url("https://github.com/SPCRLYST/BikeProject/blob/master/start_trips_agg.Rds?raw=true")))
+end_trips <- readRDS(gzcon(url("https://github.com/SPCRLYST/BikeProject/blob/master/end_trips_agg.Rds?raw=true")))
