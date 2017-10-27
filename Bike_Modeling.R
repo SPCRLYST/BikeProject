@@ -6,6 +6,8 @@ library(RCurl)
 library(timeDate)
 library(devtools)
 library(bigrquery)
+library(ggmap)
+library(stringr)
 
 # reading data from previously obtained google bigquery, Bike_Data_Pull.R
 bike_stations <- readRDS("C:/Users/Tyler/Desktop/MSPA/MSPA 498/bike_stations.Rds")
@@ -184,6 +186,15 @@ end_stations_sql <- "SELECT DISTINCT end_station_id
 FROM `bigquery-public-data.new_york.citibike_trips`"
 # Execute the query and store the result for citi stations
 end_bike_stations <- query_exec(end_stations_sql, project = project, use_legacy_sql = FALSE, max_pages = Inf)
+
+# adding zipcode to the data frame
+# adding zipcode to better group stations for starting stations
+result <- do.call(rbind,
+                  lapply(1:nrow(start_bike_stations),
+                         function(i)revgeocode(as.numeric(start_bike_stations[i,4:3]))))
+start_bike_stations <- cbind(start_bike_stations,result)
+start_bike_stations$zipcode <- substr(str_extract(start_bike_stations$address," [0-9]{5}, .+"),2,6)
+start_bike_stations$address <- NULL
 
 ###########################################################################################################################
 # writing data to RDS
