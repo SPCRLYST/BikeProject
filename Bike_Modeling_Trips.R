@@ -50,6 +50,7 @@ f <- as.formula(paste("trip_count ~",
                              collapse = " + ")))
 
 # dividing test and training data sets
+seed = 555
 set.seed(seed)
 ratio_sep <- 0.75
 index_s <- sample(1:nrow(mod_df_start), round(ratio_sep*nrow(mod_df_start)))
@@ -78,7 +79,7 @@ par(mfrow=c(1,3))
 plot(fwd.start.lmsum$adjr2 ,xlab = "Number of Variables", ylab = "Adjusted RSq")
 plot(fwd.start.lmsum$bic ,xlab = "Number of Variables", ylab = "BIC")
 plot(fwd.start.lmsum$cp ,xlab = "Number of Variables", ylab = "CP")
-fwd.lm.start <- as.data.frame(coef(regfit.fwd.start, 12))
+fwd.lm.start <- as.data.frame(coef(regfit.fwd.start, 13))
 
 # stepwise variable selection
 set.seed(seed)
@@ -115,51 +116,166 @@ plot(test.start$trip_count,pred.valid.ls1,xlab="Known Trips",ylab="Regression Es
 abline(0,1,lwd=2)
 legend('bottomright',legend='Regression',pch=18,col='red', bty='n')
 
-# playing with the data set to get matrix format for use with nueral networks and random forests
-# creating a matrix form of the data to use with more interesting model types
-mod_matrix_start <- cbind(mod_df_start[,1:7], 
-                          model.matrix(~ . + 0, 
-                                       data= mod_df_start[,8:12], 
-                                       contrasts.arg = lapply(mod_df_start[,8:12], 
-                                                              contrasts, 
-                                                              contrasts=FALSE)))
+# exploring the data to see if there is a way to create a variable to high traffice areas, basically reducing the amount of variables
+zip_count <- start_trips %>%
+  group_by(zipcode) %>%
+  summarise(zip_agg=sum(!is.na(day)))
+zip_count
+
+# creating a new variable to show zipcode groupings of 5 major categorys based on size
+zips <- c('11201',
+          '10002',
+          '10003',
+          '11205',
+          '10011',
+          '10013',
+          '10019',
+          '10009',
+          '10016',
+          '10001',
+          '10014',
+          '10017',
+          '10022',
+          '11249',
+          '10012',
+          '10036',
+          '11238',
+          '11217',
+          '10038',
+          '10018',
+          '10010',
+          '11211',
+          '11222',
+          '10007',
+          '11206',
+          '11216',
+          '10004',
+          '10005',
+          '',
+          '10023',
+          '11101',
+          '10282',
+          '10168',
+          '10024',
+          '10028',
+          '10065',
+          '10021',
+          '11221',
+          '10020',
+          '10075',
+          '10155',
+          '10280',
+          '07306',
+          '10045',
+          '10006',
+          '11231',
+          '07732',
+          '10025',
+          '11233',
+          '11215',
+          '10029',
+          '10128',
+          '11213',
+          '10069',
+          '11109',
+          '11220',
+          '11236',
+          '10026',
+          '11237')
+
+traffic_cat <- c('traf1',
+                 'traf1',
+                 'traf1',
+                 'traf1',
+                 'traf1',
+                 'traf1',
+                 'traf1',
+                 'traf2',
+                 'traf2',
+                 'traf2',
+                 'traf2',
+                 'traf2',
+                 'traf2',
+                 'traf2',
+                 'traf3',
+                 'traf3',
+                 'traf3',
+                 'traf3',
+                 'traf3',
+                 'traf3',
+                 'traf3',
+                 'traf4',
+                 'traf4',
+                 'traf4',
+                 'traf4',
+                 'traf4',
+                 'traf4',
+                 'traf4',
+                 'traf5',
+                 'traf5',
+                 'traf5',
+                 'traf5',
+                 'traf5',
+                 'traf5',
+                 'traf5',
+                 'traf6',
+                 'traf6',
+                 'traf6',
+                 'traf6',
+                 'traf6',
+                 'traf6',
+                 'traf6',
+                 'traf7',
+                 'traf7',
+                 'traf7',
+                 'traf7',
+                 'traf7',
+                 'traf7',
+                 'traf7',
+                 'traf8',
+                 'traf8',
+                 'traf8',
+                 'traf8',
+                 'traf8',
+                 'traf8',
+                 'traf8',
+                 'traf8',
+                 'traf8',
+                 'traf8')
+
+simp_traf <- data.frame(zips, traffic_cat)
+
+# merge to get more categorical zip codes
+mod_df_start <- merge(mod_df_start, simp_traf, by.x = "zipcode", by.y = "zips", all = TRUE)
+
+# removing zipcode for modeling with more complex models
+mod_df_start_nz <- mod_df_start[,2:13]
+# remove observations with missing values
+mod_df_start_nz <- mod_df_start_nz[complete.cases(mod_df_start_nz), ]
 
 # forumla for modeling variables
-n1 <- names(mod_matrix_start[,c(2:90)])
+n1 <- names(mod_df_start_nz [,c(2:12)])
 f1 <- as.formula(paste("trip_count ~",
                       paste(n1[!n1 %in% "trip_count"],
                             collapse = " + ")))
 
 # dividing test and training data sets
+seed = 555
 set.seed(seed)
 ratio_sep <- 0.75
-index_s1 <- sample(1:nrow(mod_matrix_start), round(ratio_sep*nrow(mod_matrix_start)))
+index_s1 <- sample(1:nrow(mod_df_start_nz), round(ratio_sep*nrow(mod_df_start_nz)))
 
-# test and training start but using matrix form
-train.start.mat <- mod_matrix_start[index_s1,]
-test.start.mat <- mod_matrix_start[-index_s1,]
+# test and training start and end trip data frames
+train.start1 <- mod_df_start_nz[index_s1,]
+test.start1 <- mod_df_start_nz[-index_s1,]
+
 
 # Random Forest used to predict amount
 set.seed(seed)
-rf.model = randomForest(f1, data =  train.start.mat)
-post.valid.rf = predict(rf.model, newdata = test.start.mat)
+rf.model = randomForest(f1, data =  train.start1)
+post.valid.rf = predict(rf.model, newdata = test.start1)
 hist(post.valid.rf2)
 mean((test.start.mat$trip_count - post.valid.rf2)^2) # mean prediction error
 # model didn't finish running 
 sd((test.start.mat$trip_count - post.valid.rf2)^2)/sqrt(test.start.mat) # std error
 # model didn't finish running 
-
-
-
-
-
-
-# used to get zip codes added, also updated the other 
-# adding zipcode to better group stations
-# result <- do.call(rbind,
-#                   lapply(1:nrow(start_bike_stations),
-#                          function(i)revgeocode(as.numeric(start_bike_stations[i,4:3]))))
-# start_bike_stations <- cbind(start_bike_stations,result)
-# start_bike_stations$zipcode <- substr(str_extract(start_bike_stations$address," [0-9]{5}, .+"),2,6)
-# start_bike_stations$address <- NULL
-# saveRDS(start_bike_stations, "C:/Users/Tyler/Desktop/MSPA/MSPA 498/start_bike_stations.Rds")
