@@ -50,7 +50,6 @@ f <- as.formula(paste("trip_count ~",
                              collapse = " + ")))
 
 # dividing test and training data sets
-seed = 555
 set.seed(seed)
 ratio_sep <- 0.75
 index_s <- sample(1:nrow(mod_df_start), round(ratio_sep*nrow(mod_df_start)))
