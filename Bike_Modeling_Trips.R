@@ -4,10 +4,9 @@ library(dplyr)
 library(xtable)
 library(RCurl)
 library(timeDate)
+library(leaps)
 library(rpart)
 library(rpart.plot)
-library(zipcode)
-library(ggmap)
 library(stringr)
 library(randomForest)
 
@@ -46,8 +45,8 @@ print(na2_xtab, scalebox = 0.80, comment = FALSE)
 # forumla for modeling variables
 n <- names(mod_df_start[,c(2:12)])
 f <- as.formula(paste("trip_count ~",
-                       paste(n[!n %in% "trip_count"],
-                             collapse = " + ")))
+                      paste(n[!n %in% "trip_count"],
+                            collapse = " + ")))
 
 # dividing test and training data sets
 seed = 555
@@ -248,20 +247,18 @@ simp_traf <- data.frame(zips, traffic_cat)
 # merge to get more categorical zip codes
 mod_df_start <- merge(mod_df_start, simp_traf, by.x = "zipcode", by.y = "zips", all = TRUE)
 
-# removing zipcode for modeling with more complex models
-mod_df_start_nz <- mod_df_start[,2:13]
+# reordering to include zipcode for modeling with more complex models
+mod_df_start_nz <- mod_df_start[,c(2,3:13,1)]
 # remove observations with missing values
 mod_df_start_nz <- mod_df_start_nz[complete.cases(mod_df_start_nz), ]
 
 # forumla for modeling variables
 n1 <- names(mod_df_start_nz [,c(2:12)])
 f1 <- as.formula(paste("trip_count ~",
-                      paste(n1[!n1 %in% "trip_count"],
-                            collapse = " + ")))
+                       paste(n1[!n1 %in% "trip_count"],
+                             collapse = " + ")))
 
 # dividing test and training data sets
-seed = 555
-set.seed(seed)
 ratio_sep <- 0.75
 index_s1 <- sample(1:nrow(mod_df_start_nz), round(ratio_sep*nrow(mod_df_start_nz)))
 
@@ -269,13 +266,81 @@ index_s1 <- sample(1:nrow(mod_df_start_nz), round(ratio_sep*nrow(mod_df_start_nz
 train.start1 <- mod_df_start_nz[index_s1,]
 test.start1 <- mod_df_start_nz[-index_s1,]
 
-
 # Random Forest used to predict amount
 set.seed(seed)
 rf.model = randomForest(f1, data =  train.start1)
 post.valid.rf = predict(rf.model, newdata = test.start1)
-hist(post.valid.rf2)
-mean((test.start.mat$trip_count - post.valid.rf2)^2) # mean prediction error
+# plot distribution of predicted values
+par(mfrow=c(1,1))
+hist(post.valid.rf)
+mean((test.start1$trip_count - post.valid.rf)^2) # mean prediction error
 # model didn't finish running 
-sd((test.start.mat$trip_count - post.valid.rf2)^2)/sqrt(test.start.mat) # std error
+sd((test.start1$trip_count - post.valid.rf)^2)/sqrt(test.start1) # std error
+# plotting results
+par(mfrow=c(1,1))
+plot(test.start1$trip_count,post.valid.rf,xlab="Known Trips",ylab="Regression Estimate",col='blue',
+     main='Real vs Predicted Trips Random Forest',pch=18,cex=0.7)
+abline(0,1,lwd=2)
+legend('bottomright',legend='Random Forest',pch=18,col='blue', bty='n')
+
+
+# model matrix stuff
+mod_df_start_mat <- mod_df_start[,c(2,3:13,1)]
+# Random Forest using model matrix
+mod_matrix_start <- cbind(mod_df_start_mat[,1:11], 
+                          model.matrix(~ . + 0, 
+                                       data= mod_df_start_mat[,12:13], 
+                                       contrasts.arg = lapply(mod_df_start_mat[,12:13], 
+                                                              contrasts, 
+                                                              contrasts=FALSE)))
+mod_matrix_start$zipcode <- NULL
+
+# forumla for modeling variables
+n_mat <- names(mod_matrix_start[,c(2:77)])
+f_mat <- as.formula(paste("trip_count ~",
+                          paste(n_mat[!n_mat %in% "trip_count"],
+                                collapse = " + ")))
+
+# setting up the model matrix index
+set.seed(seed)
+ratio_sep <- 0.75
+index_s_mat <- sample(1:nrow(mod_matrix_start), round(ratio_sep*nrow(mod_matrix_start)))
+
+# remove observations with missing zipcodes and AWND
+mod_matrix_start<- mod_matrix_start[complete.cases(mod_matrix_start), ]
+
+# test and training start and end trip data frames using model matrix
+train.start.mat <- mod_matrix_start[index_s_mat,]
+test.start.mat <- mod_matrix_start[-index_s_mat,]
+
+# Random Forest used to predict amount with model matrix
+set.seed(seed)
+rf.model.mat = randomForest(f_mat, data =  train.start.mat)
+post.valid.rf.mat = predict(rf.model.mat, newdata = test.start.mat)
+# plot distribution of predicted values
+par(mfrow=c(1,1))
+hist(post.valid.rf.mat)
+mean((test.start.mat$trip_count - post.valid.rf.mat)^2) # mean prediction error
 # model didn't finish running 
+sd((test.start.mat$trip_count - post.valid.rf.mat)^2)/sqrt(length(test.start.mat$trip_count)) # std error
+# plotting results
+par(mfrow=c(1,1))
+plot(test.start.mat$trip_count,post.valid.rf.mat,xlab="Known Trips",ylab="Random Forest Estimate",col='green',
+     main='Real vs Predicted Trips Matirx Random Forest',pch=18,cex=0.7)
+abline(0,1,lwd=2)
+legend('bottomright',legend='Random Forest',pch=18,col='green', bty='n')
+
+# creation of difference variable
+diff_df <- full_join(start_trips[,1:3], 
+                     end_trips[,1:3], 
+                     by = c("start_date" = "end_date", "start_station_id" = "end_station_id"))
+# changing NA's to zero
+diff_df[is.na(diff_df)] <- 0
+# renaming columns
+colnames(diff_df) <- c("Date","Station_ID","Start_Trips","End_Trips")
+# diff variable
+diff_df$diff <- ""
+diff_df$diff <- (diff_df$Start_Trips - diff_df$End_Trips)
+
+# Write CSV in R
+write.csv(diff_df, file = "C:/Users/Tyler/Desktop/MSPA/MSPA 498/Bike_Diff.csv")
